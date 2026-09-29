@@ -1,0 +1,368 @@
+{
+  "name": "Lead Ingestion Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "options": {
+          "allowedOrigins": "*",
+          "responseData": "{\"status\":\"received\",\"message\":\"Thank you! Your request has been submitted.\"}"
+        }
+      },
+      "id": "c5769d0b-f074-4ec1-8e6a-977b12ad086c",
+      "name": "Lead Capture Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        96
+      ],
+      "webhookId": "1fa586d3-92c4-4c10-b2ca-0ebd7381a15f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "name",
+              "value": "={{ ($json.body.name || \"\").trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "email",
+              "value": "={{ ($json.body.email || \"\").trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "phone",
+              "value": "={{ ($json.body.phone || \"\").trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "f4",
+              "name": "company",
+              "value": "={{ ($json.body.company || \"\").trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "f5",
+              "name": "requirements",
+              "value": "={{ ($json.body.requirements || \"\").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2dff207e-9f1e-4aaf-a078-feee6960fa3a",
+      "name": "Normalize Lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a B2B lead qualification assistant. Analyze the lead and return a quality score from 0-100, a qualification tier (Hot, Warm, or Cold), the primary buying intent as a short phrase, and a one-sentence summary. Weigh urgency, budget signals, company presence, and clarity of requirements."
+            },
+            {
+              "content": "=Name: {{ $json.name }}\nEmail: {{ $json.email }}\nPhone: {{ $json.phone }}\nCompany: {{ $json.company }}\nRequirements: {{ $json.requirements }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "lead_scoring",
+              "schema": "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"score\":{\"type\":\"integer\",\"description\":\"Lead quality score from 0 to 100\"},\"qualification\":{\"type\":\"string\",\"enum\":[\"Hot\",\"Warm\",\"Cold\"]},\"intent\":{\"type\":\"string\",\"description\":\"Primary buying intent as a short phrase\"},\"summary\":{\"type\":\"string\",\"description\":\"One-sentence summary of the lead\"}},\"required\":[\"score\",\"qualification\",\"intent\",\"summary\"]}",
+              "strict": true
+            }
+          }
+        }
+      },
+      "id": "fb345f0b-1f37-48e8-96c1-337acba2cfdc",
+      "name": "Score & Extract Intent",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        96
+      ],
+      "executeOnce": false,
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Normalize Lead').item.json;\n\nlet ai = {};\ntry {\n  const raw = $('Score & Extract Intent').item.json.output[0].content[0].text;\n  ai = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});\n} catch (e) {\n  ai = {};\n}\n\nconst aiScore = Number(ai.score) || 0;\nconst intent = ai.intent || '';\nconst summary = ai.summary || '';\n\n// Rule-based scoring on normalized fields\nconst req = String(lead.requirements || '').toLowerCase();\nlet ruleScore = 0;\nif (lead.email) ruleScore += 15;\nif (lead.phone) ruleScore += 15;\nif (lead.company) ruleScore += 15;\nif (req.length > 40) ruleScore += 15;\nconst signals = ['urgent', 'asap', 'buy', 'purchase', 'budget', 'quote', 'pricing', 'demo', 'trial', 'immediately', 'this week', 'this month'];\nif (signals.some(function (k) { return req.includes(k); })) ruleScore += 40;\nruleScore = Math.min(ruleScore, 100);\n\nconst finalScore = Math.round(aiScore * 0.6 + ruleScore * 0.4);\nconst qualified = finalScore >= 60;\n\nlet qualification = ai.qualification || '';\nif (!qualification) {\n  qualification = finalScore >= 75 ? 'Hot' : finalScore >= 50 ? 'Warm' : 'Cold';\n}\n\nreturn [{\n  json: {\n    name: lead.name || '',\n    email: lead.email || '',\n    phone: lead.phone || '',\n    company: lead.company || '',\n    requirements: lead.requirements || '',\n    ai_score: aiScore,\n    rule_score: ruleScore,\n    final_score: finalScore,\n    qualification: qualification,\n    intent: intent,\n    summary: summary,\n    qualified: qualified,\n  },\n}];"
+      },
+      "id": "ebf9037c-e09b-458a-a522-63e5fcd80c77",
+      "name": "Combine Scoring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "leads"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "name",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "column": "phone",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "column": "company",
+              "value": "={{ $json.company }}"
+            },
+            {
+              "column": "requirements",
+              "value": "={{ $json.requirements }}"
+            },
+            {
+              "column": "score",
+              "value": "={{ $json.final_score }}"
+            },
+            {
+              "column": "qualification",
+              "value": "={{ $json.qualification }}"
+            },
+            {
+              "column": "intent",
+              "value": "={{ $json.intent }}"
+            },
+            {
+              "column": "summary",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "column": "qualified",
+              "value": "={{ $json.qualified ? 1 : 0 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "60c98658-ba6c-4cf4-9e0a-6f1d14f35bd4",
+      "name": "Save Lead to MySQL",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1232,
+        -80
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "WcScVmNZSiJeRxMY",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "q1",
+              "leftValue": "={{ $json.qualified }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d3230e8d-de60-4ae0-854f-1abcc37ec784",
+      "name": "Is Qualified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "C0C0DPXDL8M",
+          "cachedResultName": "general"
+        },
+        "text": "=:fire: *New qualified lead: {{ $json.qualification }}* (score {{ $json.final_score }}/100)\n*Name:* {{ $json.name }}\n*Email:* {{ $json.email }}\n*Phone:* {{ $json.phone }}\n*Company:* {{ $json.company }}\n*Intent:* {{ $json.intent }}\n*Summary:* {{ $json.summary }}\n*Requirements:* {{ $json.requirements }}",
+        "otherOptions": {}
+      },
+      "id": "f9a4476a-f5b5-4334-a1bf-e94ffd9de171",
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1472,
+        192
+      ],
+      "webhookId": "7f691f99-41cc-4198-8846-2c478292c043",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "VeCWozt1Y2sC68BG",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "mubashirjel420@gmail.com",
+        "toEmail": "libertychess9@gmail.com",
+        "subject": "=New {{ $(\"Combine Scoring\").item.json.qualification }} lead: {{ $(\"Combine Scoring\").item.json.name }} ({{ $(\"Combine Scoring\").item.json.company }})",
+        "html": "=<h2>New Qualified Lead</h2><p><strong>Qualification:</strong> {{ $(\"Combine Scoring\").item.json.qualification }} (score {{ $(\"Combine Scoring\").item.json.final_score }}/100)</p><ul><li><strong>Name:</strong> {{ $(\"Combine Scoring\").item.json.name }}</li><li><strong>Email:</strong> {{ $(\"Combine Scoring\").item.json.email }}</li><li><strong>Phone:</strong> {{ $(\"Combine Scoring\").item.json.phone }}</li><li><strong>Company:</strong> {{ $(\"Combine Scoring\").item.json.company }}</li><li><strong>Intent:</strong> {{ $(\"Combine Scoring\").item.json.intent }}</li></ul><p><strong>Summary:</strong> {{ $(\"Combine Scoring\").item.json.summary }}</p><p><strong>Requirements:</strong><br/>{{ $(\"Combine Scoring\").item.json.requirements }}</p>",
+        "options": {}
+      },
+      "id": "d93e7fb0-df26-4e55-9050-1197f780adee",
+      "name": "Email Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1232,
+        192
+      ],
+      "webhookId": "18b96ae6-55f6-498f-8ee8-255dfc1a1431",
+      "credentials": {
+        "smtp": {
+          "id": "AzXEIwp2HfJ6QWYh",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead": {
+      "main": [
+        [
+          {
+            "node": "Score & Extract Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score & Extract Intent": {
+      "main": [
+        [
+          {
+            "node": "Combine Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Scoring": {
+      "main": [
+        [
+          {
+            "node": "Is Qualified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Qualified?": {
+      "main": [
+        [
+          {
+            "node": "Save Lead to MySQL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Alert": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "26f6e7d2-a7f0-4aa0-973f-c0201d5bd8cf",
+  "meta": {
+    "instanceId": "9f6142a57aeb8cf90fa3e0c97e22c3d8f7c256022290a24376df6d14caf985e7"
+  },
+  "nodeGroups": [],
+  "id": "34j3rDaLemrjUmLo",
+  "tags": []
+}
