@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Capture</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="page-shell">
+    <section class="card">
+      <div class="eyebrow">Business Inquiry</div>
+      <h1>Tell us what you need</h1>
+      <p class="subtitle">Submit your details and our team will review your request.</p>
+
+      <form id="leadForm" novalidate>
+        <div class="grid">
+          <label>
+            <span>Name *</span>
+            <input type="text" name="name" autocomplete="name" required maxlength="100" placeholder="Enter Your Name" />
+          </label>
+          <label>
+            <span>Email *</span>
+            <input type="email" name="email" autocomplete="email" required maxlength="160" placeholder="john@company.com" />
+          </label>
+          <label>
+            <span>Phone *</span>
+            <input type="tel" name="phone" autocomplete="tel" required maxlength="40" placeholder="+92 300 1234567" />
+          </label>
+          <label>
+            <span>Company</span>
+            <input type="text" name="company" autocomplete="organization" maxlength="150" placeholder="Khawaja labs." />
+          </label>
+        </div>
+
+        <label>
+          <span>Requirements *</span>
+          <textarea name="requirements" required maxlength="2000" rows="6" placeholder="Describe the service, project, timeline, budget, or business problem..."></textarea>
+        </label>
+
+        <button id="submitBtn" type="submit">Submit Lead</button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

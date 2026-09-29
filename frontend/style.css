@@ -1,0 +1,116 @@
+* { box-sizing: border-box; }
+
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #18212f;
+  background: #f4f7fb;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f4f7fb 0%, #eaf0f9 100%);
+}
+
+.page-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px;
+}
+
+.card {
+  width: min(720px, 100%);
+  background: #fff;
+  border: 1px solid #e3e8f0;
+  border-radius: 18px;
+  padding: 34px;
+  box-shadow: 0 20px 55px rgba(29, 50, 78, 0.12);
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #52657d;
+}
+
+h1 {
+  margin: 8px 0 8px;
+  font-size: clamp(28px, 5vw, 40px);
+}
+
+.subtitle {
+  margin: 0 0 26px;
+  color: #66748a;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+label {
+  display: block;
+  margin-bottom: 18px;
+}
+
+label span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+input, textarea {
+  width: 100%;
+  border: 1px solid #cfd8e5;
+  border-radius: 10px;
+  padding: 12px 13px;
+  font: inherit;
+  color: inherit;
+  background: #fbfcfe;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+input:focus, textarea:focus {
+  border-color: #476b9b;
+  box-shadow: 0 0 0 3px rgba(71, 107, 155, 0.13);
+}
+
+textarea { resize: vertical; min-height: 135px; }
+
+button {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 13px 16px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  background: #243b5a;
+  transition: transform .15s ease, opacity .15s ease;
+}
+
+button:hover { transform: translateY(-1px); }
+button:disabled { opacity: .6; cursor: wait; transform: none; }
+
+.status {
+  min-height: 22px;
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: #53657b;
+}
+
+.status.success { color: #17643e; }
+.status.error { color: #a53e3e; }
+
+@media (max-width: 620px) {
+  .card { padding: 24px 18px; }
+  .grid { grid-template-columns: 1fr; gap: 0; }
+}
